@@ -1,6 +1,5 @@
 name: Flutter CI
 
-# triggers: pushes to main or pull requests; you can add tags or branches later
 on:
   push:
     branches: [ main ]
@@ -9,64 +8,83 @@ on:
   workflow_dispatch:
 
 jobs:
+  analyze-test:
+    name: Analyze & Test (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Flutter Analyze
+        run: flutter analyze
+
+      - name: Run Tests
+        run: flutter test --coverage
+
+      - name: Upload Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
 
   build-android:
-    name: Build Android (matrix)
-    runs-on: ubuntu-latest
-    needs: test
-    strategy:
-      matrix:
-        arch: [arm, x86] # optional matrix, keep or remove
+    name: Build Android (APK + AAB)
+    runs-on: macos-latest
+    needs: analyze-test
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          channel: 'stable'
 
-      - name: Cache gradle (~/.gradle and ./gradle)
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/daemon
-            ~/.gradle/native
-            ~/.pub-cache
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties') }}
-          restore-keys: ${{ runner.os }}-gradle-
-
-      - name: Install dependencies
+      - name: Get dependencies
         run: flutter pub get
 
-      - name: Build APK
+      - name: Build Android APK
         run: flutter build apk --release
 
-      - name: Build AAB
+      - name: Build Android AppBundle (AAB)
         run: flutter build appbundle --release
 
-      - name: Upload Android artifacts
+      - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: android-build
+          name: android
           path: |
             build/app/outputs/**/*.apk
             build/app/outputs/**/*.aab
 
   build-ios:
-    name: Build iOS (macOS runner)
+    name: Build iOS (IPA)
     runs-on: macos-latest
-    needs: test
+    needs: analyze-test
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
-      - run: flutter pub get
-      - name: Build iOS (archive)
-        run: |
-          # this will build an Xcode archive; modify if you use flavors or different signing
-          flutter build ipa --export-method ad-hoc --release
-      - uses: actions/upload-artifact@v4
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS IPA
+        run: flutter build ipa --release --export-method ad-hoc
+
+      - name: Upload iOS IPA
+        uses: actions/upload-artifact@v4
         with:
-          name: ios-build
-          path: build/ios/ipa
+          name: ios
+          path: build/ios/ipa/
