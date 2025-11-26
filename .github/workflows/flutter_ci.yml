@@ -81,7 +81,8 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS IPA
-        run: flutter build ipa --release --export-method ad-hoc
+#        run: flutter build ipa --release --export-method ad-hoc
+        run: flutter build ipa --release --export-method development
 
       - name: Upload iOS IPA
         uses: actions/upload-artifact@v4
