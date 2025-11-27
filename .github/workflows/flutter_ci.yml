@@ -65,27 +65,61 @@ jobs:
             build/app/outputs/**/*.apk
             build/app/outputs/**/*.aab
 
-  build-ios:
-    name: Build iOS (IPA)
-    runs-on: macos-latest
-    needs: analyze-test
+build-ios:
+  name: Build iOS (IPA)
+  runs-on: macos-latest
+  needs: analyze-test
 
-    steps:
-      - uses: actions/checkout@v4
+  # ⚠️ Ensure P12_BASE64 and MOBILEPROVISION_BASE64 are set as Secrets in your repo
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
+  steps:
+    - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: flutter pub get
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
 
-      - name: Build iOS IPA
-#        run: flutter build ipa --release --export-method ad-hoc
-        run: flutter build ipa --release --export-method development
+    - name: Install dependencies
+      run: flutter pub get
 
-      - name: Upload iOS IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios
-          path: build/ios/ipa/
+    # 🔐 Install Development Certificate (.p12)
+    # ⚠️ Note: For CI, it's often better practice to use a non-default keychain name for security and cleanup
+    - name: Install Development Certificate
+      run: |
+        KEYCHAIN_NAME="build.keychain"
+        CERTIFICATE_PASSWORD="123" # Must match the password for your p12 file
+        
+        echo "$P12_BASE64" | base64 --decode > certificate.p12
+        
+        # Create and set up the custom keychain
+        security create-keychain -p "" $KEYCHAIN_NAME
+        security list-keychains -s $KEYCHAIN_NAME
+        security default-keychain -s $KEYCHAIN_NAME
+        security unlock-keychain -p "" $KEYCHAIN_NAME
+        security set-keychain-settings -lut 21600 $KEYCHAIN_NAME
+        
+        # Import the certificate
+        security import certificate.p12 -k $KEYCHAIN_NAME -P $CERTIFICATE_PASSWORD -A
+        
+        # This step is crucial: set the partition list for the imported certificate
+        security set-key-partition-list -S apple-tool: -k "" $KEYCHAIN_NAME
+
+    # 🔐 Install Development Provisioning Profile (.mobileprovision)
+    - name: Install Provisioning Profile
+      run: |
+        echo "$MOBILEPROVISION_BASE64" | base64 --decode > development.mobileprovision
+        PROVISIONING_PROFILE_DIR=~/Library/MobileDevice/Provisioning\ Profiles
+        mkdir -p $PROVISIONING_PROFILE_DIR
+        # Copy the profile to the standard location
+        cp development.mobileprovision $PROVISIONING_PROFILE_DIR/
+
+    # 📦 Build IPA using the ExportOptions.plist
+    - name: Build iOS IPA
+      # ⚠️ Make sure ExportOptions.plist is in the correct path relative to the checkout
+      run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+
+    - name: Upload iOS IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios
+        path: build/ios/ipa/
