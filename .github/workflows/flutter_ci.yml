@@ -84,32 +84,36 @@ jobs:
 
       # 🔐 Install Development Certificate (.p12)
       # ⚠️ Note: For CI, it's often better practice to use a non-default keychain name for security and cleanup
-      - name: Install Development Certificate
-        run: |
-          
-          KEYCHAIN_NAME="build.keychain"
-          CERTIFICATE_PASSWORD="123"
-  
-          echo "$P12_BASE64" | base64 --decode > certificate.p12
-  
-          security create-keychain -p "" $KEYCHAIN_NAME
-          security default-keychain -s $KEYCHAIN_NAME
-          security unlock-keychain -p "" $KEYCHAIN_NAME
-          
-          security set-keychain-settings -lut 3600 $KEYCHAIN_NAME
-        
-          security import certificate.p12 -k $KEYCHAIN_NAME -P $CERTIFICATE_PASSWORD -A
-          security set-key-partition-list -S apple-tool: -k "" $KEYCHAIN_NAME
-
-
-      # 🔐 Install Development Provisioning Profile (.mobileprovision)
-      - name: Install Provisioning Profile
-        run: |
-          echo "$MOBILEPROVISION_BASE64" | base64 --decode > development.mobileprovision
-          PROVISIONING_PROFILE_DIR=~/Library/MobileDevice/Provisioning\ Profiles
-          mkdir -p $PROVISIONING_PROFILE_DIR
-          # Copy the profile to the standard location
-          cp development.mobileprovision $PROVISIONING_PROFILE_DIR/
+#      - name: Install Development Certificate
+#        run: |
+#
+#
+#          KEYCHAIN_NAME="build.keychain"
+#          CERTIFICATE_PASSWORD="123" # Must match the password for your p12 file
+#
+#          echo "$P12_BASE64" | base64 --decode > certificate.p12
+#
+#          # Create and set up the custom keychain
+#          security create-keychain -p "" $KEYCHAIN_NAME
+#          security list-keychains -s $KEYCHAIN_NAME
+#          security default-keychain -s $KEYCHAIN_NAME
+#          security unlock-keychain -p "" $KEYCHAIN_NAME
+#          security set-keychain-settings -lut 21600 $KEYCHAIN_NAME
+#
+#          # Import the certificate
+#          security import certificate.p12 -k $KEYCHAIN_NAME -P $CERTIFICATE_PASSWORD -A
+#
+#          # This step is crucial: set the partition list for the imported certificate
+#          security set-key-partition-list -S apple-tool: -k "" $KEYCHAIN_NAME
+#
+#      # 🔐 Install Development Provisioning Profile (.mobileprovision)
+#      - name: Install Provisioning Profile
+#        run: |
+#          echo "$MOBILEPROVISION_BASE64" | base64 --decode > development.mobileprovision
+#          PROVISIONING_PROFILE_DIR=~/Library/MobileDevice/Provisioning\ Profiles
+#          mkdir -p $PROVISIONING_PROFILE_DIR
+#          # Copy the profile to the standard location
+#          cp development.mobileprovision $PROVISIONING_PROFILE_DIR/
 
       # 📦 Build IPA using the ExportOptions.plist
       - name: Build iOS IPA
